@@ -43,4 +43,4 @@ notify:
   notify_on_bet: true           # 每次下注时通知
   notify_on_settle: true        # 每次结算（盈亏）时通知
   notify_on_loss_limit: true    # 触达日亏损上限时通知
-  notify_cycle_summary: false   # 每轮扫描完成后发汇总（每60分钟一条，建议关闭）
+  notify_cycle_summary: true    # 每轮扫描完成后发汇总（每60分钟一条，含 Top 3 市场）

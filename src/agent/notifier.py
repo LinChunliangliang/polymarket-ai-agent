@@ -71,11 +71,25 @@ async def notify_agent_error(error: str) -> None:
     )
 
 
-async def notify_cycle_summary(markets: int, signals: int, bets: int, ai_cost: float) -> None:
-    await _send(
-        f"📊 *扫描完成*\n"
-        f"扫描市场: `{markets}` 个\n"
-        f"发现信号: `{signals}` 个\n"
-        f"下注: `{bets}` 笔\n"
-        f"AI 费用: `${ai_cost:.4f}`"
-    )
+async def notify_cycle_summary(
+    markets: int,
+    signals: int,
+    bets: int,
+    ai_cost: float,
+    top_markets: list = None,
+    dry_run: bool = False,
+) -> None:
+    mode = " `[DRY RUN]`" if dry_run else ""
+    lines = [
+        f"📊 *扫描完成*{mode}",
+        f"扫描市场: `{markets}` 个 | 信号: `{signals}` 个 | 下注: `{bets}` 笔",
+        f"AI 费用: `${ai_cost:.4f}`",
+    ]
+    if top_markets:
+        lines.append("\n*Top 市场（流动性排名）:*")
+        for m in top_markets[:3]:
+            q = m.get("question", "")[:45] + ("…" if len(m.get("question", "")) > 45 else "")
+            yes = m.get("yes_price", 0)
+            liq = m.get("liquidity_usd", 0)
+            lines.append(f"• {q}\n  YES `{yes:.2f}` | 流动性 `${liq:,.0f}`")
+    await _send("\n".join(lines))

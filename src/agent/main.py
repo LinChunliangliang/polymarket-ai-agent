@@ -62,7 +62,7 @@ class NotifyConfig(BaseModel):
     notify_on_bet: bool = True
     notify_on_settle: bool = True
     notify_on_loss_limit: bool = True
-    notify_cycle_summary: bool = False
+    notify_cycle_summary: bool = True
 
 
 class AppConfig(BaseModel):

@@ -196,7 +196,12 @@ async def run_ai_scan_cycle() -> None:
         from src.agent.notifier import notify_cycle_summary
         from src.agent.main import get_config as _get_cfg
         if _get_cfg().notify.notify_cycle_summary:
-            await notify_cycle_summary(len(tradeable), signals_found, bets_placed, total_ai_cost)
+            top = [
+                {"question": m.question, "yes_price": m.yes_price, "liquidity_usd": m.liquidity_usd}
+                for m in tradeable[:3]
+            ]
+            await notify_cycle_summary(len(tradeable), signals_found, bets_placed, total_ai_cost,
+                                       top_markets=top, dry_run=_dry_run)
     except Exception as e:
         logger.error("ai_scan_cycle error: %s", e, exc_info=True)
         from src.agent.notifier import notify_agent_error

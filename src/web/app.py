@@ -20,8 +20,7 @@ def startup():
 async def dashboard(request: Request):
     report = get_status()
     bets = get_bets(limit=50, status_filter="all")
-    return templates.TemplateResponse("index.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "index.html", {
         "report": report,
         "bets": bets,
     })

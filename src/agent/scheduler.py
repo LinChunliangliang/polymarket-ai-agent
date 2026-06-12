@@ -36,22 +36,26 @@ def setup_scheduler(risk: RiskConfig, poly_client=None, dry_run: bool = False) -
 
     _scheduler = AsyncIOScheduler()
 
-    # Fast price check every N minutes
+    now = datetime.utcnow()
+
+    # Fast price check every N minutes — run immediately on start
     _scheduler.add_job(
         run_price_check_cycle,
         IntervalTrigger(minutes=risk.price_check_interval_min),
         id="price_check",
         name="Price Check Cycle",
         misfire_grace_time=60,
+        next_run_time=now,
     )
 
-    # Full AI scan every N minutes
+    # Full AI scan every N minutes — run immediately on start
     _scheduler.add_job(
         run_ai_scan_cycle,
         IntervalTrigger(minutes=risk.ai_scan_interval_min),
         id="ai_scan",
         name="AI Scan Cycle",
         misfire_grace_time=300,
+        next_run_time=now,
     )
 
     # Daily loss reset at 00:00 UTC

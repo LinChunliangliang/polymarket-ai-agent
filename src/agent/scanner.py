@@ -1,4 +1,5 @@
 import logging
+import re
 from datetime import datetime, timedelta
 from typing import List
 
@@ -73,7 +74,7 @@ _CRYPTO_KEYWORDS = {
 
 def _is_crypto_market(item: dict) -> bool:
     """Return True if the market is crypto-related."""
-    # Check tags field from API
+    # Check tags field from API (exact slug match)
     tags = item.get("tags") or item.get("categories") or []
     if isinstance(tags, list):
         for tag in tags:
@@ -81,9 +82,10 @@ def _is_crypto_market(item: dict) -> bool:
             if "crypto" in slug or "bitcoin" in slug or "ethereum" in slug or "defi" in slug:
                 return True
 
-    # Fallback: keyword match on question text
+    # Word-boundary keyword match — avoids "eth" matching "Netherlands"
     question = (item.get("question") or item.get("title") or "").lower()
-    return any(kw in question for kw in _CRYPTO_KEYWORDS)
+    words = set(re.split(r"\W+", question))
+    return bool(words & _CRYPTO_KEYWORDS)
 
 
 def filter_tradeable(

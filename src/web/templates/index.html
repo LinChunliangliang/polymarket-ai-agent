@@ -40,6 +40,7 @@
     .badge-cancelled{ background: #292524; color: #78716c; }
     .badge-yes      { background: #0c4a6e; color: #38bdf8; }
     .badge-no       { background: #431407; color: #fb923c; }
+    .badge-arb      { background: #1a2e1a; color: #86efac; }
 
     .footer { text-align: center; color: #334155; font-size: 11px; margin-top: 8px; }
     .empty  { text-align: center; color: #475569; padding: 32px; }
@@ -122,6 +123,40 @@
   </table>
   {% else %}
   <div class="empty">No bets yet. Agent will place bets when it finds mispricings &gt;8%.</div>
+  {% endif %}
+</div>
+
+<div class="section">
+  <h2>⚡ Arbitrage Opportunities{% if arb.scanned_at %} <span style="font-size:11px;color:#475569;font-weight:400;text-transform:none">— last scan {{ arb.scanned_at[:16] }}</span>{% endif %}</h2>
+  {% if arb.opportunities %}
+  <table>
+    <thead>
+      <tr>
+        <th>Market</th>
+        <th>YES</th>
+        <th>NO</th>
+        <th>Sum</th>
+        <th>Net Profit</th>
+        <th>Liquidity</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for o in arb.opportunities[:10] %}
+      {% set q = o.market.question %}
+      {% set q_short = q[:55] ~ ('…' if q|length > 55 else '') %}
+      <tr>
+        <td title="{{ q }}">{{ q_short }}</td>
+        <td class="no-wrap">{{ '%.3f'|format(o.yes_price) }}</td>
+        <td class="no-wrap">{{ '%.3f'|format(o.no_price) }}</td>
+        <td class="no-wrap {% if o.sum_price < 0.97 %}pnl-pos{% endif %}">{{ '%.3f'|format(o.sum_price) }}</td>
+        <td class="no-wrap pnl-pos">+{{ '%.2f'|format(o.net_profit_pct * 100) }}%</td>
+        <td class="no-wrap">${{ '{:,.0f}'.format(o.market.liquidity_usd) }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty">No arbitrage opportunities detected. Markets are fairly priced (YES + NO ≈ 1).</div>
   {% endif %}
 </div>
 

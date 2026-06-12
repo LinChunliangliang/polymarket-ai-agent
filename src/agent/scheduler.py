@@ -16,6 +16,7 @@ from src.agent import portfolio as port_mgr
 from src.agent.risk import check_daily_loss_limit
 from src.models.portfolio import RiskConfig
 from src.storage.db import get_portfolio
+from src.agent.arbitrage import find_arb_opportunities, compute_arb_size, execute_arb
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +27,17 @@ _dry_run: bool = False
 
 # Cache of last AI estimates: {condition_id: yes_price_at_analysis}
 _last_analysis_prices: dict = {}
+
+# Cache of last arb scan results
+_last_arb_opps: list = []
+_last_arb_scanned_at: Optional[datetime] = None
+
+
+def get_last_arb() -> dict:
+    return {
+        "opportunities": _last_arb_opps,
+        "scanned_at": _last_arb_scanned_at.isoformat() if _last_arb_scanned_at else None,
+    }
 
 
 def setup_scheduler(risk: RiskConfig, poly_client=None, dry_run: bool = False) -> AsyncIOScheduler:
@@ -55,6 +67,16 @@ def setup_scheduler(risk: RiskConfig, poly_client=None, dry_run: bool = False) -
         id="ai_scan",
         name="AI Scan Cycle",
         misfire_grace_time=300,
+        next_run_time=now,
+    )
+
+    # Arbitrage scan — runs at same cadence as price check
+    _scheduler.add_job(
+        run_arb_scan_cycle,
+        IntervalTrigger(minutes=risk.price_check_interval_min),
+        id="arb_scan",
+        name="Arbitrage Scan",
+        misfire_grace_time=60,
         next_run_time=now,
     )
 
@@ -210,6 +232,74 @@ async def run_ai_scan_cycle() -> None:
         logger.error("ai_scan_cycle error: %s", e, exc_info=True)
         from src.agent.notifier import notify_agent_error
         await notify_agent_error(str(e))
+
+
+async def run_arb_scan_cycle() -> None:
+    global _last_arb_opps, _last_arb_scanned_at
+    if app_main.should_stop():
+        return
+
+    cfg = app_main.get_config()
+    risk = _risk_config
+    start = datetime.utcnow()
+    logger.info("arb_scan_cycle started")
+
+    try:
+        portfolio = get_portfolio()
+
+        if check_daily_loss_limit(portfolio, risk):
+            logger.debug("Daily loss limit reached, skipping arb scan")
+            return
+
+        markets = await fetch_crypto_markets(
+            categories=cfg.scanning.categories,
+            max_results=300,
+        )
+
+        # For arb we want ALL markets (not just filtered-by-AI-criteria), but must have prices
+        all_with_prices = [m for m in markets if m.yes_price > 0 and m.no_price > 0]
+
+        opportunities = find_arb_opportunities(
+            all_with_prices,
+            min_profit_pct=getattr(cfg, "arb_min_profit_pct", 0.005),
+            min_liquidity=200.0,
+        )
+
+        _last_arb_scanned_at = datetime.utcnow()
+        _last_arb_opps = opportunities
+
+        if not opportunities:
+            logger.info("arb_scan_cycle: no arbitrage opportunities found")
+            return
+
+        logger.info("arb_scan_cycle: found %d opportunities", len(opportunities))
+
+        executed = 0
+        for opp in opportunities[:3]:  # max 3 arb trades per cycle
+            amount = compute_arb_size(opp, portfolio, risk)
+            if amount is None:
+                continue
+            opp.bet_amount = amount
+            success = await execute_arb(
+                opp, amount, portfolio,
+                polymarket_client=_polymarket_client,
+                dry_run=_dry_run,
+            )
+            if success:
+                executed += 1
+
+        elapsed = (datetime.utcnow() - start).total_seconds()
+        logger.info(
+            "arb_scan_cycle completed | found=%d executed=%d duration=%.1fs",
+            len(opportunities), executed, elapsed,
+        )
+        from src.agent.notifier import notify_arb_opportunity
+        await notify_arb_opportunity(opportunities, executed, dry_run=_dry_run)
+
+    except Exception as e:
+        logger.error("arb_scan_cycle error: %s", e, exc_info=True)
+        from src.agent.notifier import notify_agent_error
+        await notify_agent_error(f"arb_scan error: {e}")
 
 
 async def _reset_daily_loss() -> None:

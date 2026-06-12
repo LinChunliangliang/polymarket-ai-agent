@@ -7,6 +7,13 @@ from fastapi.templating import Jinja2Templates
 from src.storage.db import init_db, get_bets
 from src.agent.reporter import get_status
 
+def _get_arb():
+    try:
+        from src.agent.scheduler import get_last_arb
+        return get_last_arb()
+    except Exception:
+        return {"opportunities": [], "scanned_at": None}
+
 app = FastAPI(title="Polymarket Agent Dashboard")
 templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 
@@ -20,9 +27,11 @@ def startup():
 async def dashboard(request: Request):
     report = get_status()
     bets = get_bets(limit=50, status_filter="all")
+    arb = _get_arb()
     return templates.TemplateResponse(request, "index.html", {
         "report": report,
         "bets": bets,
+        "arb": arb,
     })
 
 
@@ -51,3 +60,25 @@ async def api_status():
 @app.get("/api/bets")
 async def api_bets(limit: int = 50, status: str = "all"):
     return get_bets(limit=limit, status_filter=status)
+
+
+@app.get("/api/arb")
+async def api_arb():
+    data = _get_arb()
+    opps = data["opportunities"]
+    return {
+        "scanned_at": data["scanned_at"],
+        "count": len(opps),
+        "opportunities": [
+            {
+                "condition_id": o.market.condition_id,
+                "question": o.market.question,
+                "yes_price": o.yes_price,
+                "no_price": o.no_price,
+                "sum_price": o.sum_price,
+                "net_profit_pct": round(o.net_profit_pct * 100, 3),
+                "liquidity_usd": o.market.liquidity_usd,
+            }
+            for o in opps[:20]
+        ],
+    }

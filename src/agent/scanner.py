@@ -129,7 +129,7 @@ def _parse_market(item: dict) -> Market | None:
         return None
 
     question = item.get("question") or item.get("title") or ""
-    yes_price = _extract_yes_price(item)
+    yes_price, no_price = _extract_prices(item)
     if yes_price is None:
         return None
 
@@ -161,7 +161,7 @@ def _parse_market(item: dict) -> Market | None:
         question=question,
         category="crypto",
         yes_price=yes_price,
-        no_price=round(1.0 - yes_price, 4),
+        no_price=no_price,
         volume_usd=float(item.get("volume", item.get("volumeNum", 0)) or 0),
         liquidity_usd=float(item.get("liquidity", item.get("liquidityNum", 0)) or 0),
         end_datetime=end_dt,
@@ -172,26 +172,42 @@ def _parse_market(item: dict) -> Market | None:
     )
 
 
-def _extract_yes_price(item: dict) -> float | None:
-    # Try several common field names
+def _extract_prices(item: dict) -> tuple:
+    """Return (yes_price, no_price). Falls back to (1-yes, complement) if NO unavailable."""
     for key in ("outcomePrices", "outcome_prices"):
         prices = item.get(key)
         if prices:
-            if isinstance(prices, list) and len(prices) >= 1:
-                return float(prices[0])
-            if isinstance(prices, str):
+            arr = None
+            if isinstance(prices, list):
+                arr = prices
+            elif isinstance(prices, str):
                 import json
                 try:
                     arr = json.loads(prices)
-                    if arr:
-                        return float(arr[0])
+                except Exception:
+                    pass
+            if arr and len(arr) >= 2:
+                try:
+                    return float(arr[0]), float(arr[1])
+                except Exception:
+                    pass
+            if arr and len(arr) >= 1:
+                try:
+                    yes = float(arr[0])
+                    return yes, round(1.0 - yes, 4)
                 except Exception:
                     pass
     for key in ("bestAsk", "best_ask", "lastTradePrice", "last_trade_price"):
         v = item.get(key)
         if v is not None:
             try:
-                return float(v)
+                yes = float(v)
+                return yes, round(1.0 - yes, 4)
             except Exception:
                 pass
-    return None
+    return None, None
+
+
+def _extract_yes_price(item: dict) -> float | None:
+    yes, _ = _extract_prices(item)
+    return yes

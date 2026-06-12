@@ -71,6 +71,20 @@ async def notify_agent_error(error: str) -> None:
     )
 
 
+async def notify_arb_opportunity(opps: list, executed: int, dry_run: bool = False) -> None:
+    """Notify about arbitrage opportunities found/executed."""
+    mode = " `[DRY RUN]`" if dry_run else ""
+    lines = [f"⚡ *套利扫描*{mode}", f"发现机会: `{len(opps)}` 个 | 已执行: `{executed}` 笔"]
+    for opp in opps[:3]:
+        q = opp.market.question[:40] + ("…" if len(opp.market.question) > 40 else "")
+        lines.append(
+            f"\n• {q}\n"
+            f"  YES `{opp.yes_price:.3f}` + NO `{opp.no_price:.3f}` = `{opp.sum_price:.3f}`\n"
+            f"  净利润率 `{opp.net_profit_pct*100:.2f}%`"
+        )
+    await _send("\n".join(lines))
+
+
 async def notify_cycle_summary(
     markets: int,
     signals: int,

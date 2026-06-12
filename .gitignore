@@ -1,0 +1,22 @@
+config.yaml
+agent.db
+agent.pid
+agent.stop
+web.pid
+logs/
+.env
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.DS_Store
+*.tmp
+
+# Specify workflow artifacts
+.specify/
+specs/

@@ -1,5 +1,7 @@
 # Polymarket AI 交易 Agent
 
+[English](README.en.md)
+
 自动化预测市场交易机器人，每 60 分钟扫描 Polymarket 加密领域市场，调用 DeepSeek AI 估算真实概率，在发现 >8% 错误定价时自动下注。
 
 ## 功能特性

@@ -29,7 +29,7 @@ scanning:
   price_check_interval_min: 10  # Fast price check every N minutes
   max_markets_per_ai_scan: 50   # Top N markets by liquidity for AI analysis
   categories:
-    - "crypto"
+    - "all"                     # "all" = scan all categories; or list specific: ["crypto", "politics"]
 
 logging:
   level: "INFO"                 # DEBUG / INFO / WARNING

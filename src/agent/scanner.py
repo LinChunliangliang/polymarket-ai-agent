@@ -14,14 +14,43 @@ CLOB_BASE = "https://clob.polymarket.com"
 GAMMA_BASE = "https://gamma-api.polymarket.com"
 
 
+async def fetch_all_markets(
+    max_results: int = 500,
+    min_liquidity: float = 50.0,
+) -> List[Market]:
+    """Fetch all active markets across all categories. Used for arb scanning and broad AI analysis."""
+    markets: List[Market] = []
+    async with httpx.AsyncClient(timeout=30) as client:
+        try:
+            resp = await client.get(
+                f"{GAMMA_BASE}/markets",
+                params={"active": "true", "closed": "false", "limit": max_results},
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            items = data if isinstance(data, list) else data.get("data", data.get("markets", []))
+        except Exception as e:
+            logger.error("Failed to fetch all markets: %s", e)
+            return []
+
+    for item in items:
+        try:
+            market = _parse_market(item)
+            if market and market.liquidity_usd >= min_liquidity:
+                markets.append(market)
+                db.upsert_market(market)
+        except Exception as e:
+            logger.debug("Skipping market parse error: %s", e)
+
+    logger.info("Fetched %d active markets (all categories)", len(markets))
+    return markets
+
+
 async def fetch_crypto_markets(
     categories: List[str] = None,
     max_results: int = 200,
 ) -> List[Market]:
-    """Fetch active crypto markets from Polymarket Gamma API."""
-    if categories is None:
-        categories = ["crypto"]
-
+    """Fetch active crypto markets only. Kept for backward compatibility."""
     markets: List[Market] = []
     async with httpx.AsyncClient(timeout=30) as client:
         try:
@@ -43,7 +72,6 @@ async def fetch_crypto_markets(
 
     for item in items:
         try:
-            # Client-side crypto filter: check tags or category field
             if not _is_crypto_market(item):
                 continue
             market = _parse_market(item)

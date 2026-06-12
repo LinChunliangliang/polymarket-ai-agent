@@ -8,7 +8,7 @@ from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 
 from src.agent import main as app_main
-from src.agent.scanner import fetch_crypto_markets, filter_tradeable, fetch_prices
+from src.agent.scanner import fetch_all_markets, fetch_crypto_markets, filter_tradeable, fetch_prices
 from src.agent.estimator import estimate_probability
 from src.agent.strategy import compute_bet
 from src.agent.executor import place_bet, poll_settlements
@@ -145,10 +145,13 @@ async def run_ai_scan_cycle() -> None:
                 await notify_daily_loss_limit(portfolio.daily_loss_usd, risk.daily_loss_limit_usd)
             return
 
-        markets = await fetch_crypto_markets(
-            categories=cfg.scanning.categories,
-            max_results=300,
-        )
+        if "all" in cfg.scanning.categories:
+            markets = await fetch_all_markets(max_results=500)
+        else:
+            markets = await fetch_crypto_markets(
+                categories=cfg.scanning.categories,
+                max_results=300,
+            )
         tradeable = filter_tradeable(
             markets,
             top_n=risk.max_markets_per_ai_scan,
@@ -251,12 +254,8 @@ async def run_arb_scan_cycle() -> None:
             logger.debug("Daily loss limit reached, skipping arb scan")
             return
 
-        markets = await fetch_crypto_markets(
-            categories=cfg.scanning.categories,
-            max_results=300,
-        )
-
-        # For arb we want ALL markets (not just filtered-by-AI-criteria), but must have prices
+        # Arb scans ALL categories — mathematical arbitrage is market-agnostic
+        markets = await fetch_all_markets(max_results=500)
         all_with_prices = [m for m in markets if m.yes_price > 0 and m.no_price > 0]
 
         opportunities = find_arb_opportunities(

@@ -46,7 +46,7 @@ class ScanningConfig(BaseModel):
     ai_scan_interval_min: int = 60
     price_check_interval_min: int = 10
     max_markets_per_ai_scan: int = 50
-    categories: list = Field(default_factory=lambda: ["crypto"])
+    categories: list = Field(default_factory=lambda: ["all"])
 
 
 class LoggingConfig(BaseModel):

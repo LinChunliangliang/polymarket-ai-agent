@@ -42,6 +42,9 @@ async def fetch_crypto_markets(
 
     for item in items:
         try:
+            # Client-side crypto filter: check tags or category field
+            if not _is_crypto_market(item):
+                continue
             market = _parse_market(item)
             if market:
                 markets.append(market)
@@ -51,6 +54,36 @@ async def fetch_crypto_markets(
 
     logger.info("Fetched %d active crypto markets", len(markets))
     return markets
+
+
+# Keywords that identify a crypto market
+_CRYPTO_KEYWORDS = {
+    "bitcoin", "btc", "ethereum", "eth", "solana", "sol", "crypto",
+    "defi", "nft", "blockchain", "token", "coin", "altcoin", "stablecoin",
+    "usdc", "usdt", "polygon", "matic", "chainlink", "link", "uniswap",
+    "aave", "compound", "curve", "lido", "arbitrum", "optimism", "base",
+    "avalanche", "avax", "cardano", "ada", "ripple", "xrp", "dogecoin",
+    "doge", "shiba", "binance", "bnb", "sui", "aptos", "near", "cosmos",
+    "atom", "polkadot", "dot", "litecoin", "ltc", "monero", "xmr",
+    "hyperliquid", "hype", "dydx", "gmx", "pendle", "eigenlayer",
+    "restaking", "layer2", "l2", "mainnet", "testnet", "halving",
+    "etf", "sec", "cftc",  # crypto regulatory news
+}
+
+
+def _is_crypto_market(item: dict) -> bool:
+    """Return True if the market is crypto-related."""
+    # Check tags field from API
+    tags = item.get("tags") or item.get("categories") or []
+    if isinstance(tags, list):
+        for tag in tags:
+            slug = (tag.get("slug") or tag.get("label") or "").lower() if isinstance(tag, dict) else str(tag).lower()
+            if "crypto" in slug or "bitcoin" in slug or "ethereum" in slug or "defi" in slug:
+                return True
+
+    # Fallback: keyword match on question text
+    question = (item.get("question") or item.get("title") or "").lower()
+    return any(kw in question for kw in _CRYPTO_KEYWORDS)
 
 
 def filter_tradeable(

@@ -1,0 +1,17 @@
+[Unit]
+Description=Polymarket AI Trading Agent
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/polymarket-agent
+ExecStart=/home/ubuntu/polymarket-agent/.venv/bin/python -m agent start
+Restart=on-failure
+RestartSec=30
+EnvironmentFile=/home/ubuntu/polymarket-agent/.env
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

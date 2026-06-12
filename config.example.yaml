@@ -1,0 +1,46 @@
+# Polymarket AI Agent Configuration
+# Copy to config.yaml and fill in your values.
+# NEVER commit config.yaml to version control.
+
+polymarket:
+  private_key: "0x..."          # Polygon wallet private key (env: POLY_PRIVATE_KEY takes priority)
+  chain_id: 80002               # 80002 = Polygon Amoy sandbox; 137 = mainnet
+
+deepseek:
+  api_key: "sk-..."             # DeepSeek API key (env: DEEPSEEK_API_KEY takes priority)
+  model: "deepseek-chat"        # deepseek-chat = V4-Flash (cheap); deepseek-reasoner = stronger
+
+onchain:
+  defillama_base_url: "https://api.defillama.com"
+  github_token: ""              # Optional: Personal Access Token for 30 req/min (vs 10 unauthenticated)
+  etherscan_api_key: ""         # Optional: free key at etherscan.io for 5 req/s
+
+risk:
+  starting_balance_usd: 500
+  max_position_pct: 0.06        # Max 6% of balance per bet
+  daily_loss_limit_usd: 75      # Auto-pause when daily loss exceeds this
+  min_bet_usd: 5                # Skip signals below this size
+  deviation_threshold: 0.08     # Only bet when |AI estimate - market price| > 8%
+  min_liquidity_multiple: 3.0   # Market depth must be >= bet_size * this
+  kelly_fraction: 0.25          # Fractional Kelly multiplier (0.25 = conservative)
+
+scanning:
+  ai_scan_interval_min: 60      # Full AI analysis every N minutes
+  price_check_interval_min: 10  # Fast price check every N minutes
+  max_markets_per_ai_scan: 50   # Top N markets by liquidity for AI analysis
+  categories:
+    - "crypto"
+
+logging:
+  level: "INFO"                 # DEBUG / INFO / WARNING
+  file: "logs/agent.log"
+  max_size_mb: 50
+  backup_count: 7
+
+notify:
+  telegram_bot_token: ""        # BotFather 给的 token，格式: 123456:ABC-xxx
+  telegram_chat_id: ""          # 你的 chat ID，找 @userinfobot 获取
+  notify_on_bet: true           # 每次下注时通知
+  notify_on_settle: true        # 每次结算（盈亏）时通知
+  notify_on_loss_limit: true    # 触达日亏损上限时通知
+  notify_cycle_summary: false   # 每轮扫描完成后发汇总（每60分钟一条，建议关闭）

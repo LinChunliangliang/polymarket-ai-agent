@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="refresh" content="30">
+  <title>Polymarket Agent</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #0f1117; color: #e2e8f0; font-family: 'SF Mono', 'Consolas', monospace; font-size: 14px; padding: 24px; }
+    h1 { font-size: 18px; font-weight: 600; color: #a78bfa; margin-bottom: 20px; letter-spacing: 0.5px; }
+    h2 { font-size: 13px; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; }
+
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
+    .card { background: #1e2130; border: 1px solid #2d3148; border-radius: 8px; padding: 16px; }
+    .card .label { font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 6px; }
+    .card .value { font-size: 22px; font-weight: 700; color: #f1f5f9; }
+    .card .sub { font-size: 12px; color: #64748b; margin-top: 4px; }
+
+    .status-running { color: #4ade80; }
+    .status-stopped { color: #f87171; }
+    .status-paused  { color: #fbbf24; }
+
+    .pnl-pos { color: #4ade80; }
+    .pnl-neg { color: #f87171; }
+
+    .section { background: #1e2130; border: 1px solid #2d3148; border-radius: 8px; padding: 20px; margin-bottom: 24px; }
+    table { width: 100%; border-collapse: collapse; }
+    thead th { font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: 0.8px; padding: 8px 12px; text-align: left; border-bottom: 1px solid #2d3148; }
+    tbody td { padding: 10px 12px; border-bottom: 1px solid #1a1e2e; color: #cbd5e1; vertical-align: middle; }
+    tbody tr:last-child td { border-bottom: none; }
+    tbody tr:hover td { background: #252940; }
+
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+    .badge-filled   { background: #1e3a5f; color: #60a5fa; }
+    .badge-open     { background: #2d3a1e; color: #86efac; }
+    .badge-won      { background: #14532d; color: #4ade80; }
+    .badge-lost     { background: #450a0a; color: #f87171; }
+    .badge-pending  { background: #312e81; color: #a5b4fc; }
+    .badge-cancelled{ background: #292524; color: #78716c; }
+    .badge-yes      { background: #0c4a6e; color: #38bdf8; }
+    .badge-no       { background: #431407; color: #fb923c; }
+
+    .footer { text-align: center; color: #334155; font-size: 11px; margin-top: 8px; }
+    .empty  { text-align: center; color: #475569; padding: 32px; }
+    .no-wrap { white-space: nowrap; }
+  </style>
+</head>
+<body>
+
+<h1>⬡ Polymarket AI Agent</h1>
+
+{% set r = report %}
+{% set pnl_class = 'pnl-pos' if r.portfolio_pnl >= 0 else 'pnl-neg' %}
+{% set pnl_sign  = '+' if r.portfolio_pnl >= 0 else '' %}
+
+<div class="grid">
+  <div class="card">
+    <div class="label">Agent Status</div>
+    <div class="value status-{{ r.status }}">{{ r.status.upper() }}</div>
+    <div class="sub">{% if r.pid %}PID {{ r.pid }}{% else %}Not running{% endif %}</div>
+  </div>
+  <div class="card">
+    <div class="label">Current Balance</div>
+    <div class="value">${{ '%.2f'|format(r.portfolio_current) }}</div>
+    <div class="sub">Started at ${{ '%.2f'|format(r.portfolio_starting) }}</div>
+  </div>
+  <div class="card">
+    <div class="label">Total P&amp;L</div>
+    <div class="value {{ pnl_class }}">{{ pnl_sign }}${{ '%.2f'|format(r.portfolio_pnl) }}</div>
+    <div class="sub">{{ pnl_sign }}{{ '%.1f'|format(r.portfolio_pnl_pct) }}%</div>
+  </div>
+  <div class="card">
+    <div class="label">Open Bets</div>
+    <div class="value">{{ r.open_bets }}</div>
+    <div class="sub">${{ '%.2f'|format(r.open_bets_at_risk) }} at risk</div>
+  </div>
+  <div class="card">
+    <div class="label">Daily Loss</div>
+    <div class="value {% if r.daily_loss >= r.daily_loss_limit %}pnl-neg{% endif %}">${{ '%.2f'|format(r.daily_loss) }}</div>
+    <div class="sub">Limit ${{ '%.2f'|format(r.daily_loss_limit) }}</div>
+  </div>
+  <div class="card">
+    <div class="label">AI Cost Today</div>
+    <div class="value">${{ '%.4f'|format(r.ai_cost_today) }}</div>
+    <div class="sub">Total ${{ '%.4f'|format(r.total_ai_cost) }}</div>
+  </div>
+</div>
+
+<div class="section">
+  <h2>Bet History (last 50)</h2>
+  {% if bets %}
+  <table>
+    <thead>
+      <tr>
+        <th>Time</th>
+        <th>Market</th>
+        <th>Side</th>
+        <th>Amount</th>
+        <th>Price</th>
+        <th>Status</th>
+        <th>P&amp;L</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for b in bets %}
+      {% set q = (b.question or b.condition_id or '') %}
+      {% set q_short = q[:55] ~ ('…' if q|length > 55 else '') %}
+      <tr>
+        <td class="no-wrap">{{ (b.created_at or '')[:16] }}</td>
+        <td title="{{ q }}">{{ q_short }}</td>
+        <td><span class="badge badge-{{ (b.side or '')|lower }}">{{ b.side or '—' }}</span></td>
+        <td class="no-wrap">${{ '%.2f'|format(b.amount_usd or 0) }}</td>
+        <td class="no-wrap">{{ '%.3f'|format(b.price_at_order or 0) }}</td>
+        <td><span class="badge badge-{{ (b.status or '')|lower }}">{{ (b.status or '').upper() }}</span></td>
+        <td class="no-wrap {% if b.pnl_usd is not none %}{% if b.pnl_usd >= 0 %}pnl-pos{% else %}pnl-neg{% endif %}{% endif %}">
+          {% if b.pnl_usd is not none %}{{ '+' if b.pnl_usd >= 0 else '' }}${{ '%.2f'|format(b.pnl_usd) }}{% else %}—{% endif %}
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty">No bets yet. Agent will place bets when it finds mispricings &gt;8%.</div>
+  {% endif %}
+</div>
+
+<div class="footer">Auto-refreshes every 30s &nbsp;·&nbsp; Last updated: {{ now if now else 'just now' }} &nbsp;·&nbsp; <a href="/api/status" style="color:#475569">JSON API</a></div>
+
+</body>
+</html>

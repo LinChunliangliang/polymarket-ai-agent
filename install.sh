@@ -30,9 +30,10 @@ section "检查依赖"
 command -v git    >/dev/null 2>&1 || { warn "git 未安装，正在安装..."; apt-get install -y git -qq; }
 command -v python3 >/dev/null 2>&1 || { warn "python3 未安装，正在安装..."; apt-get install -y python3 python3-venv python3-pip -qq; }
 
-# 确保 venv 模块可用
-info "安装 python3-venv..."
-apt-get install -y python3-venv -qq
+# 确保 venv 模块可用（按 Python 版本安装对应包）
+PYTHON_VER=$(python3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')")
+info "安装 python${PYTHON_VER}-venv..."
+apt-get install -y "python${PYTHON_VER}-venv" -qq || apt-get install -y python3-venv -qq
 
 PYTHON_VER=$(python3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')")
 info "Python $PYTHON_VER"
